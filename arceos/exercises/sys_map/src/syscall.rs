@@ -131,16 +131,63 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
     ret
 }
 
-#[allow(unused_variables)]
 fn sys_mmap(
     addr: *mut usize,
     length: usize,
     prot: i32,
     flags: i32,
     fd: i32,
-    _offset: isize,
+    offset: isize,
 ) -> isize {
-    unimplemented!("no sys_mmap!");
+    syscall_body!(sys_mmap, {
+        use memory_addr::{align_up_4k, VirtAddr, VirtAddrRange, PAGE_SIZE_4K};
+
+        if length == 0 || offset < 0 || offset as usize % PAGE_SIZE_4K != 0 {
+            return Err(LinuxError::EINVAL);
+        }
+        let prot = MmapProt::from_bits(prot).ok_or(LinuxError::EINVAL)?;
+        let flags = MmapFlags::from_bits(flags).ok_or(LinuxError::EINVAL)?;
+        let map_size = align_up_4k(length);
+
+        let data = if flags.contains(MmapFlags::MAP_ANONYMOUS) {
+            alloc::vec![0u8; length]
+        } else {
+            if fd < 0 {
+                return Err(LinuxError::EBADF);
+            }
+            if api::sys_lseek(fd, offset as _, 0) < 0 {
+                return Err(LinuxError::EINVAL);
+            }
+            let file = api::get_file_like(fd)?;
+            let mut data = alloc::vec![0u8; length];
+            let read_len = file.read(&mut data)?;
+            data.truncate(read_len);
+            data
+        };
+
+        let curr = current();
+        let mut aspace = curr.task_ext().aspace.lock();
+        let hint = if addr.is_null() {
+            VirtAddr::from(0x1000_0000usize)
+        } else {
+            VirtAddr::from(addr as usize)
+        };
+        let vaddr = if flags.contains(MmapFlags::MAP_FIXED) {
+            if addr.is_null() || hint.as_usize() % PAGE_SIZE_4K != 0 {
+                return Err(LinuxError::EINVAL);
+            }
+            hint
+        } else {
+            let limit = VirtAddrRange::from_start_size(aspace.base(), aspace.size());
+            aspace
+                .find_free_area(hint, map_size, limit)
+                .ok_or(LinuxError::ENOMEM)?
+        };
+
+        aspace.map_alloc(vaddr, map_size, prot.into(), true)?;
+        aspace.write(vaddr, &data)?;
+        Ok(vaddr.as_usize())
+    })
 }
 
 fn sys_openat(dfd: c_int, fname: *const c_char, flags: c_int, mode: api::ctypes::mode_t) -> isize {

@@ -77,7 +77,7 @@ fn run_guest(ctx: &mut VmCpuRegisters) -> bool {
 
 #[allow(unreachable_code)]
 fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
-    use scause::{Exception, Trap};
+    use scause::{Exception, Interrupt, Trap};
 
     let scause = scause::read();
     match scause.cause() {
@@ -102,16 +102,37 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
             }
         },
         Trap::Exception(Exception::IllegalInstruction) => {
-            panic!("Bad instruction: {:#x} sepc: {:#x}",
-                stval::read(),
-                ctx.guest_regs.sepc
-            );
+            let inst = stval::read();
+            if inst == 0xf140_25f3 {
+                // Emulate `csrr a1, mhartid` with a virtual hart ID.
+                ctx.guest_regs.gprs.set_reg(A1, 0x1234);
+                ctx.guest_regs.sepc += 4;
+            } else {
+                panic!("Bad instruction: {:#x} sepc: {:#x}",
+                    inst,
+                    ctx.guest_regs.sepc
+                );
+            }
         },
         Trap::Exception(Exception::LoadGuestPageFault) => {
-            panic!("LoadGuestPageFault: stval{:#x} sepc: {:#x}",
-                stval::read(),
-                ctx.guest_regs.sepc
+            let fault_addr = stval::read();
+            if fault_addr == 0x40 {
+                // Emulate `ld a0, 64(zero)` using the virtual machine's magic value.
+                ctx.guest_regs.gprs.set_reg(A0, 0x6688);
+                ctx.guest_regs.sepc += 4;
+            } else {
+                panic!("LoadGuestPageFault: stval{:#x} sepc: {:#x}",
+                    fault_addr,
+                    ctx.guest_regs.sepc
+                );
+            }
+        },
+        Trap::Interrupt(Interrupt::SupervisorTimer) => {
+            CSR.hvip.read_and_set_bits(
+                csrs::traps::interrupt::VIRTUAL_SUPERVISOR_TIMER,
             );
+            CSR.sie
+                .read_and_clear_bits(csrs::traps::interrupt::SUPERVISOR_TIMER);
         },
         _ => {
             panic!(

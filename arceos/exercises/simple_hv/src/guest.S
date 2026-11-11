@@ -130,11 +130,7 @@ _guest_exit:
     sd    t0, ({guest_a0})(a0)
 
 _restore_csrs:
-    /* Swap in hypervisor CSRs. */
-    ld    t1, ({hyp_sstatus})(a0)
-    csrrw t1, sstatus, t1
-    sd    t1, ({guest_sstatus})(a0)
-
+    /* Swap in hypervisor CSRs while interrupts are still disabled. */
     csrr  t1, hstatus
     sd    t1, ({guest_hstatus})(a0)
 
@@ -177,5 +173,10 @@ _restore_csrs:
     ld   s10, ({hyp_s10})(a0)
     ld   s11, ({hyp_s11})(a0)
     ld   sp, ({hyp_sp})(a0)
+
+    /* Restore sstatus last since it may re-enable interrupts. */
+    ld    t1, ({hyp_sstatus})(a0)
+    csrrw t1, sstatus, t1
+    sd    t1, ({guest_sstatus})(a0)
 
     ret
