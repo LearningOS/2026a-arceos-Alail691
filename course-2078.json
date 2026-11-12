@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "courseId": 2078,
+  "repository": "LearningOS/2026a-arceos-Alail691",
+  "commit": "f9d63320796f247ab9fb2cac17cff46f1406aed1",
+  "score": 600,
+  "totalScore": 600,
+  "exercises": [
+    {
+      "name": "print_with_color",
+      "max": 100,
+      "score": 100,
+      "status": "pass",
+      "exitCode": 0
+    },
+    {
+      "name": "ramfs_rename",
+      "max": 100,
+      "score": 100,
+      "status": "pass",
+      "exitCode": 0
+    },
+    {
+      "name": "alt_alloc",
+      "max": 100,
+      "score": 100,
+      "status": "pass",
+      "exitCode": 0
+    },
+    {
+      "name": "support_hashmap",
+      "max": 100,
+      "score": 100,
+      "status": "pass",
+      "exitCode": 0
+    },
+    {
+      "name": "sys_map",
+      "max": 100,
+      "score": 100,
+      "status": "pass",
+      "exitCode": 0
+    },
+    {
+      "name": "simple_hv",
+      "max": 100,
+      "score": 100,
+      "status": "pass",
+      "exitCode": 0
+    }
+  ],
+  "student": "Alail691",
+  "runId": "43050043535",
+  "runAttempt": "2",
+  "upload": {
+    "status": "pending"
+  }
+}
